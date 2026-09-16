@@ -429,7 +429,13 @@ void RandomPlayerbotMgr::UpdateAIInternal(uint32 /*elapsed*/, bool /*minimal*/)
                 break;
         }
 
-        if (loginBots && botLoading.empty())
+        // Was: botLoading.empty(). Gating the next batch on ALL in-flight loads
+        // finishing turns the ramp into drain-then-refill -- no new bot is
+        // queued until the slowest character load of the previous batch
+        // completes, so the character-DB worker sits idle between batches.
+        // Allowing a bounded number in flight keeps loads pipelined and the
+        // worker saturated; the cap still bounds the login queue.
+        if (loginBots && botLoading.size() < sPlayerbotAIConfig.randomBotsPerInterval)
         {
             loginBots += updateBots;
             loginBots = std::min(loginBots, maxNewBots);
