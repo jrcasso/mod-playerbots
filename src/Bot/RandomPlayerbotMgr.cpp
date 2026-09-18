@@ -6,6 +6,12 @@
 
 #include "RandomPlayerbotMgr.h"
 #include "AiFactory.h"
+#include "AuctionHouseMgr.h"
+#include "Bag.h"
+#include "GameTime.h"
+#include "Item.h"
+#include "ObjectMgr.h"
+#include "World.h"
 #include "Battleground.h"
 #include "BattlegroundMgr.h"
 #include "Cell.h"
@@ -23,6 +29,7 @@
 #include "NewRpgInfo.h"
 #include "NewRpgStrategy.h"
 #include "ObjectGuid.h"
+#include "ItemUsageValue.h"
 #include "PerfMonitor.h"
 #include "Player.h"
 #include "PlayerbotAI.h"
@@ -1552,6 +1559,19 @@ bool RandomPlayerbotMgr::ProcessBot(Player* bot)
         //     return true;
         // }
 
+        // Stock the auction house. Cheap (a bag scan plus at most a handful of
+        // inserts) and placed before teleport so it runs off the bot's current
+        // loot rather than after Refresh() has already cleaned the bags out.
+        uint32 auctionEvent = GetEventValue(botId, "auction");
+        if (!auctionEvent)
+        {
+            PostAuctions(bot);
+            uint32 auctionTime = urand(sPlayerbotAIConfig.minBotAuctionInterval,
+                                       sPlayerbotAIConfig.maxBotAuctionInterval);
+            SetEventValue(botId, "auction", 1, auctionTime);
+            return true;
+        }
+
         uint32 teleport = GetEventValue(botId, "teleport");
         if (!teleport)
         {
@@ -1931,6 +1951,129 @@ void RandomPlayerbotMgr::RandomTeleport(Player* bot)
         pmo->finish();
 
     Refresh(bot);
+}
+
+// Stock the auction house from bot inventories.
+//
+// mod-playerbots already computes ITEM_USAGE_AH for every item a bot carries,
+// but nothing ever consumed it: SellAction vendors those items and
+// DestroyItemAction will destroy them to free bag space. The result was an
+// auction house with zero rows no matter how many bots were online, so a player
+// had no economy to interact with at all.
+//
+// This posts from wherever the bot happens to be rather than requiring a trip to
+// an auctioneer. Bots do path to auctioneers as RPG targets, but that visit is
+// rare enough that gating on it would leave the house essentially empty --
+// stocking the economy is the point, and an unvisitable economy is not one.
+void RandomPlayerbotMgr::PostAuctions(Player* bot)
+{
+    if (!sPlayerbotAIConfig.botAuctionsEnabled)
+        return;
+
+    PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot);
+    if (!botAI)
+        return;
+
+    // Post to the bot's own faction house: that is the one a player of the same
+    // faction browses. With both factions botted, both houses fill.
+    AuctionHouseId houseId =
+        bot->GetTeamId() == TEAM_ALLIANCE ? AuctionHouseId::Alliance : AuctionHouseId::Horde;
+    AuctionHouseEntry const* auctionHouseEntry = AuctionHouseMgr::GetAuctionHouseEntryFromHouse(houseId);
+    if (!auctionHouseEntry)
+        return;
+
+    AuctionHouseObject* auctionHouse = sAuctionMgr->GetAuctionsMapByHouseId(houseId);
+    if (!auctionHouse)
+        return;
+
+    AiObjectContext* context = botAI->GetAiObjectContext();
+    uint32 posted = 0;
+
+    // Collect first, post second: posting calls MoveItemFromInventory, which
+    // mutates the very slots we would otherwise still be iterating.
+    std::vector<Item*> candidates;
+    for (uint8 slot = INVENTORY_SLOT_ITEM_START; slot < INVENTORY_SLOT_ITEM_END; ++slot)
+        if (Item* item = bot->GetItemByPos(INVENTORY_SLOT_BAG_0, slot))
+            candidates.push_back(item);
+
+    for (uint8 bag = INVENTORY_SLOT_BAG_START; bag < INVENTORY_SLOT_BAG_END; ++bag)
+        if (Bag* pBag = dynamic_cast<Bag*>(bot->GetItemByPos(INVENTORY_SLOT_BAG_0, bag)))
+            for (uint8 slot = 0; slot < pBag->GetBagSize(); ++slot)
+                if (Item* item = bot->GetItemByPos(bag, slot))
+                    candidates.push_back(item);
+
+    for (Item* item : candidates)
+    {
+        if (posted >= sPlayerbotAIConfig.botAuctionsMaxPerBot)
+            break;
+
+        ItemTemplate const* proto = item->GetTemplate();
+        if (!proto)
+            continue;
+
+        // Soulbound items cannot be auctioned at all, and a conjured or
+        // already-bound item would be rejected by the same rules the client path
+        // enforces. Skip before doing any of the expensive work.
+        if (proto->Bonding == BIND_WHEN_PICKED_UP || proto->Bonding == BIND_QUEST_ITEM ||
+            item->IsSoulBound() || item->IsConjuredConsumable() || item->IsNotEmptyBag())
+            continue;
+
+        if (proto->SellPrice == 0)
+            continue;
+
+        std::ostringstream qualifier;
+        qualifier << proto->ItemId;
+        if (AI_VALUE2(ItemUsage, "item usage", qualifier.str()) != ITEM_USAGE_AH)
+            continue;
+
+        uint32 count = item->GetCount();
+        uint32 buyout = uint32(proto->SellPrice * count * sPlayerbotAIConfig.botAuctionsPriceMultiplier);
+        if (buyout == 0)
+            continue;
+
+        // Open below buyout so the listing behaves like a real auction rather
+        // than a fixed-price vendor stall.
+        uint32 bid = buyout * 8 / 10;
+        uint32 auctionTime = uint32(DAY * sWorld->getRate(RATE_AUCTION_TIME));
+        uint32 deposit = sAuctionMgr->GetAuctionDeposit(auctionHouseEntry, auctionTime, item, count);
+        if (!bot->HasEnoughMoney(deposit))
+            break;
+
+        bot->ModifyMoney(-int32(deposit));
+
+        AuctionEntry* AH = new AuctionEntry();
+        AH->Id = sObjectMgr->GenerateAuctionID();
+        AH->houseId = houseId;
+        AH->item_guid = item->GetGUID();
+        AH->item_template = item->GetEntry();
+        AH->itemCount = count;
+        AH->owner = bot->GetGUID();
+        AH->startbid = bid;
+        AH->bidder = ObjectGuid::Empty;
+        AH->bid = 0;
+        AH->buyout = buyout;
+        AH->expire_time = GameTime::GetGameTime().count() + auctionTime;
+        AH->deposit = deposit;
+        AH->auctionHouseEntry = auctionHouseEntry;
+
+        sAuctionMgr->AddAItem(item);
+        auctionHouse->AddAuction(AH);
+
+        bot->MoveItemFromInventory(item->GetBagSlot(), item->GetSlot(), true);
+
+        CharacterDatabaseTransaction trans = CharacterDatabase.BeginTransaction();
+        item->DeleteFromInventoryDB(trans);
+        item->SaveToDB(trans);
+        AH->SaveToDB(trans);
+        bot->SaveInventoryAndGoldToDB(trans);
+        CharacterDatabase.CommitTransaction(trans);
+
+        ++posted;
+    }
+
+    if (posted)
+        LOG_DEBUG("playerbots", "Bot {} <{}>: posted {} auction(s)", bot->GetGUID().GetCounter(),
+                  bot->GetName(), posted);
 }
 
 void RandomPlayerbotMgr::Randomize(Player* bot)

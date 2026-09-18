@@ -108,6 +108,7 @@ public:
     bool IsAddclassBot(Player* bot);
     bool IsAddclassBot(ObjectGuid::LowType bot);
     void Randomize(Player* bot);
+    void PostAuctions(Player* bot);
     void Clear(Player* bot);
     void RandomizeFirst(Player* bot);
     void RandomizeMin(Player* bot);

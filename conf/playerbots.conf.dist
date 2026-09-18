@@ -1736,6 +1736,35 @@ AiPlayerbot.MaxRandomBotRandomizeTime = 1209600
 # Default: 60
 AiPlayerbot.RandomBotsPerInterval = 60
 
+#
+#    AiPlayerbot.AuctionHouse.Enabled
+#        Bots post items they have no use for (ITEM_USAGE_AH) to their faction's
+#        auction house instead of vendoring or destroying them. Without this the
+#        auction house stays empty no matter how many bots are online.
+#        Default: 1 (enabled)
+#
+#    AiPlayerbot.AuctionHouse.MaxAuctionsPerBot
+#        Most auctions a single bot posts per pass. Keeps one well-looted bot from
+#        flooding the listings.
+#        Default: 5
+#
+#    AiPlayerbot.AuctionHouse.PriceMultiplier
+#        Buyout price as a multiple of the item's vendor sell price. At 1.0 an
+#        auction is never worth buying, since a vendor pays that much anyway.
+#        Opening bid is 80% of buyout.
+#        Default: 3.0
+#
+#    AiPlayerbot.MinBotAuctionInterval / MaxBotAuctionInterval
+#        Seconds between a bot's auction passes.
+#        Default: 3600 / 21600
+#
+
+AiPlayerbot.AuctionHouse.Enabled = 1
+AiPlayerbot.AuctionHouse.MaxAuctionsPerBot = 5
+AiPlayerbot.AuctionHouse.PriceMultiplier = 3.0
+AiPlayerbot.MinBotAuctionInterval = 3600
+AiPlayerbot.MaxBotAuctionInterval = 21600
+
 # Interval (in seconds) between periodic random bot statistics dumps in the log
 # (online count, level/race/class distribution, roles, status). Set to 0 to disable.
 # Default: 300

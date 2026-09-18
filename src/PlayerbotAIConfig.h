@@ -170,6 +170,15 @@ public:
     uint32 permanentlyInWorldTime;
     uint32 minRandomBotPvpTime, maxRandomBotPvpTime;
     uint32 randomBotsPerInterval;
+
+    // Auction house stocking. mod-playerbots computes ITEM_USAGE_AH for every
+    // looted item but nothing ever acted on it -- SellAction vendors those items
+    // and DestroyItemAction will even destroy them, so the auction house stayed
+    // permanently empty and the player-facing economy did not exist.
+    bool botAuctionsEnabled;
+    uint32 botAuctionsMaxPerBot;
+    float botAuctionsPriceMultiplier;
+    uint32 minBotAuctionInterval, maxBotAuctionInterval;
     uint32 randomBotPrintStatsInterval;
     uint32 minRandomBotsPriceChangeInterval, maxRandomBotsPriceChangeInterval;
     uint32 disabledWithoutRealPlayerLoginDelay, disabledWithoutRealPlayerLogoutDelay;

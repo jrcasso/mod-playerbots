@@ -265,6 +265,14 @@ bool PlayerbotAIConfig::Initialize()
         sConfigMgr->GetOption<int32>("AiPlayerbot.PermanentlyInWorldTime", 1 * YEAR);
     randomBotTeleportDistance = sConfigMgr->GetOption<int32>("AiPlayerbot.RandomBotTeleportDistance", 100);
     randomBotsPerInterval = sConfigMgr->GetOption<int32>("AiPlayerbot.RandomBotsPerInterval", 60);
+
+    botAuctionsEnabled = sConfigMgr->GetOption<bool>("AiPlayerbot.AuctionHouse.Enabled", true);
+    botAuctionsMaxPerBot = sConfigMgr->GetOption<int32>("AiPlayerbot.AuctionHouse.MaxAuctionsPerBot", 5);
+    // Over the item's vendor sell price. Vendor price is the floor a player can
+    // always get, so an auction priced at it would never be worth buying.
+    botAuctionsPriceMultiplier = sConfigMgr->GetOption<float>("AiPlayerbot.AuctionHouse.PriceMultiplier", 3.0f);
+    minBotAuctionInterval = sConfigMgr->GetOption<int32>("AiPlayerbot.MinBotAuctionInterval", 1 * HOUR);
+    maxBotAuctionInterval = sConfigMgr->GetOption<int32>("AiPlayerbot.MaxBotAuctionInterval", 6 * HOUR);
     randomBotPrintStatsInterval = sConfigMgr->GetOption<int32>("AiPlayerbot.RandomBotPrintStatsInterval", 300);
     minRandomBotsPriceChangeInterval =
         sConfigMgr->GetOption<int32>("AiPlayerbot.MinRandomBotsPriceChangeInterval", 2 * HOUR);
