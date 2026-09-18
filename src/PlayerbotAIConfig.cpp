@@ -17,6 +17,7 @@
 #include "RandomPlayerbotMgr.h"
 #include "Talentspec.h"
 #include "TravelMgr.h"
+#include <algorithm>
 #include <cctype>
 #include <iostream>
 #include <sstream>
@@ -266,7 +267,18 @@ bool PlayerbotAIConfig::Initialize()
     randomBotTeleportDistance = sConfigMgr->GetOption<int32>("AiPlayerbot.RandomBotTeleportDistance", 100);
     randomBotsPerInterval = sConfigMgr->GetOption<int32>("AiPlayerbot.RandomBotsPerInterval", 60);
 
-    botAuctionsEnabled = sConfigMgr->GetOption<bool>("AiPlayerbot.AuctionHouse.Enabled", true);
+    groupInviteMinLevelDiff = sConfigMgr->GetOption<int32>("AiPlayerbot.GroupInviteMinLevelDiff", 2);
+    // Clamped to >=1: this is a divisor, and 0 would fault the world thread on
+    // every invite check.
+    groupInviteLevelDivisor =
+        std::max<uint32>(1, sConfigMgr->GetOption<int32>("AiPlayerbot.GroupInviteLevelDivisor", 8));
+
+    // Defaults OFF until the AddAItem double-post is fixed: posting survives a
+    // restart in `auctionhouse` while the item comes back in the bot's bags, so
+    // the next pass re-posts the same GUID and trips
+    // AuctionHouseMgr.cpp:420 ASSERT(_mAitems.find(GUID) == _mAitems.end()),
+    // which crash-loops the worldserver. See ITERATIONS row 82.
+    botAuctionsEnabled = sConfigMgr->GetOption<bool>("AiPlayerbot.AuctionHouse.Enabled", false);
     botAuctionsMaxPerBot = sConfigMgr->GetOption<int32>("AiPlayerbot.AuctionHouse.MaxAuctionsPerBot", 5);
     // Over the item's vendor sell price. Vendor price is the floor a player can
     // always get, so an auction priced at it would never be worth buying.

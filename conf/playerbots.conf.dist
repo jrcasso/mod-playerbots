@@ -1741,7 +1741,7 @@ AiPlayerbot.RandomBotsPerInterval = 60
 #        Bots post items they have no use for (ITEM_USAGE_AH) to their faction's
 #        auction house instead of vendoring or destroying them. Without this the
 #        auction house stays empty no matter how many bots are online.
-#        Default: 1 (enabled)
+#        Default: 0 -- DISABLED, crashes the worldserver (ITERATIONS row 82)
 #
 #    AiPlayerbot.AuctionHouse.MaxAuctionsPerBot
 #        Most auctions a single bot posts per pass. Keeps one well-looted bot from
@@ -1759,7 +1759,20 @@ AiPlayerbot.RandomBotsPerInterval = 60
 #        Default: 3600 / 21600
 #
 
-AiPlayerbot.AuctionHouse.Enabled = 1
+#
+#    AiPlayerbot.GroupInviteMinLevelDiff / GroupInviteLevelDivisor
+#        Level window for group invites: max(MinLevelDiff, level / LevelDivisor).
+#        The old flat +/-2 was what actually capped group size. Measured on 1100
+#        live bots at +/-2: the average ungrouped bot had 1.33 eligible partners
+#        in sight range and only 110 of 941 had the four needed for a five-man,
+#        which matches the observed 49 pairs / 15 triples / 5 quads / 0 fives.
+#        Defaults: 2 / 8  (so 2 below level 24, 10 at level 80)
+#
+
+AiPlayerbot.GroupInviteMinLevelDiff = 2
+AiPlayerbot.GroupInviteLevelDivisor = 8
+
+AiPlayerbot.AuctionHouse.Enabled = 0
 AiPlayerbot.AuctionHouse.MaxAuctionsPerBot = 5
 AiPlayerbot.AuctionHouse.PriceMultiplier = 3.0
 AiPlayerbot.MinBotAuctionInterval = 3600

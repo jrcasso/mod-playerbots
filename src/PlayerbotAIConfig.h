@@ -175,6 +175,9 @@ public:
     // looted item but nothing ever acted on it -- SellAction vendors those items
     // and DestroyItemAction will even destroy them, so the auction house stayed
     // permanently empty and the player-facing economy did not exist.
+    // Group invite level window. Flat +/-2 was the real cap on group size.
+    uint32 groupInviteMinLevelDiff, groupInviteLevelDivisor;
+
     bool botAuctionsEnabled;
     uint32 botAuctionsMaxPerBot;
     float botAuctionsPriceMultiplier;
