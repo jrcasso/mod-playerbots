@@ -546,6 +546,7 @@ public:
     bool HasGameClientMaster();
     Player* GetGroupLeader();
     uint32 GetFixedBotNumber(uint32 maxNum = 100);
+    uint32 GetStableBotNumber(uint32 maxNum);
     GrouperType GetGrouperType();
     GuilderType GetGuilderType();
     bool HasPlayerNearby(WorldPosition* pos, float range = sPlayerbotAIConfig.reactDistance);

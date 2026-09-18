@@ -4512,9 +4512,31 @@ enum GrouperType
 };
 */
 
+// Stable across the bot's whole session: the same hash as GetFixedBotNumber but
+// WITHOUT the rotation time slot. GetFixedBotNumber deliberately reshuffles every
+// BotActiveAloneDurationSeconds so the *active* roster rotates -- correct for
+// activity, wrong for identity. Mixed into GetGrouperType it re-rolled a bot's
+// grouper role every 30s, so a LEADER_5 had one rotation window to find and
+// invite anyone before becoming a MEMBER again. Measured consequence: 11 of 11
+// groups were pairs, because a leader never survived long enough to add a second.
+uint32 PlayerbotAI::GetStableBotNumber(uint32 maxNum)
+{
+    if (maxNum == 0)
+        return 0;
+
+    uint32 h = bot->GetGUID().GetCounter();
+    h ^= h >> 16;
+    h *= 0x7feb352d;
+    h ^= h >> 15;
+    h *= 0x846ca68b;
+    h ^= h >> 16;
+
+    return h % maxNum;
+}
+
 GrouperType PlayerbotAI::GetGrouperType()
 {
-    uint32 grouperNumber = GetFixedBotNumber(100);
+    uint32 grouperNumber = GetStableBotNumber(100);
 
     if (grouperNumber < 20 && !HasGameClientMaster())
         return GrouperType::SOLO;
