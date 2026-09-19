@@ -2050,6 +2050,21 @@ void RandomPlayerbotMgr::PostAuctions(Player* bot)
         if (!bot->HasEnoughMoney(deposit))
             break;
 
+        // Take the item out of the bags BEFORE creating any auction state.
+        //
+        // Player::MoveItemFromInventory is wrapped in `if (Item* it =
+        // GetItemByPos(bag, slot))` and so **silently does nothing** when that
+        // position does not resolve to the item. Registering the auction first
+        // (as the core's packet handler does, where the position is always
+        // fresh) meant a failed removal left the item both in the bot's bags and
+        // listed for sale -- measured at 95 such rows and climbing ~3/min, all
+        // same-character, same-owner. Doing the removal first makes the failure
+        // mode "item is not listed" instead of "item exists twice", and needs no
+        // rollback of deposit, _mAitems or the auction map.
+        bot->MoveItemFromInventory(item->GetBagSlot(), item->GetSlot(), true);
+        if (bot->GetItemByGuid(item->GetGUID()))
+            continue;
+
         bot->ModifyMoney(-int32(deposit));
 
         AuctionEntry* AH = new AuctionEntry();
@@ -2069,8 +2084,6 @@ void RandomPlayerbotMgr::PostAuctions(Player* bot)
 
         sAuctionMgr->AddAItem(item);
         auctionHouse->AddAuction(AH);
-
-        bot->MoveItemFromInventory(item->GetBagSlot(), item->GetSlot(), true);
 
         CharacterDatabaseTransaction trans = CharacterDatabase.BeginTransaction();
         item->DeleteFromInventoryDB(trans);
