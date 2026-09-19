@@ -2085,11 +2085,22 @@ void RandomPlayerbotMgr::PostAuctions(Player* bot)
         sAuctionMgr->AddAItem(item);
         auctionHouse->AddAuction(AH);
 
+        // Statement ORDER matters here, and getting it wrong is what caused the
+        // duplication in rows 84/85. `item->SaveToDB` ends in SetState, which
+        // calls AddToUpdateQueueOf and puts the item back into the player's
+        // item update queue. `SaveInventoryAndGoldToDB` then walks that queue
+        // and, for ITEM_NEW/ITEM_CHANGED, appends CHAR_REP_INVENTORY_ITEM --
+        // a REPLACE INTO character_inventory. With the DELETE appended first
+        // (the order the core's packet handler uses, where the item is not
+        // re-queued) that REPLACE lands *after* it inside the same transaction
+        // and resurrects the row, leaving the item both in the bags and listed.
+        //
+        // Appending the DELETE last makes it the final word on that row.
         CharacterDatabaseTransaction trans = CharacterDatabase.BeginTransaction();
-        item->DeleteFromInventoryDB(trans);
+        bot->SaveInventoryAndGoldToDB(trans);
         item->SaveToDB(trans);
         AH->SaveToDB(trans);
-        bot->SaveInventoryAndGoldToDB(trans);
+        item->DeleteFromInventoryDB(trans);
         CharacterDatabase.CommitTransaction(trans);
 
         ++posted;
