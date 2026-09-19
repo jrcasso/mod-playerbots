@@ -2026,6 +2026,17 @@ void RandomPlayerbotMgr::PostAuctions(Player* bot)
         if (AI_VALUE2(ItemUsage, "item usage", qualifier.str()) != ITEM_USAGE_AH)
             continue;
 
+        // An item can end up BOTH in the bot's bags and registered as an auction
+        // item -- measured at 16 of 3773 postings, mostly backpack slots. On the
+        // next restart the bot loads it back into inventory while it is still in
+        // _mAitems, this pass re-posts it, and AuctionHouseMgr::AddAItem trips
+        // ASSERT(_mAitems.find(GUID) == _mAitems.end()), which crash-loops the
+        // worldserver (ITERATIONS row 82). Never post a GUID the auction house
+        // already holds; that makes the assert unreachable from here regardless
+        // of how the inventory row survived.
+        if (sAuctionMgr->GetAItem(item->GetGUID()))
+            continue;
+
         uint32 count = item->GetCount();
         uint32 buyout = uint32(proto->SellPrice * count * sPlayerbotAIConfig.botAuctionsPriceMultiplier);
         if (buyout == 0)
