@@ -1661,6 +1661,32 @@ void RandomPlayerbotMgr::RandomTeleport(Player* bot, std::vector<WorldLocation>&
 
     PerfMonitorOperation* pmo = sPerfMonitor.start(PERF_MON_RNDBOT, "RandomTeleportByLocations");
 
+    // Cluster a share of teleports onto shared points (ITERATIONS row 110).
+    //
+    // Uniform choice over the whole candidate list is maximal dispersion by
+    // construction: measured, 36% of open-world bots had nobody within 100yd,
+    // and 52% of those were in zones that already held 6-20 other bots -- the
+    // zone was populated, the bots were just spread across it. `tlocs` derives
+    // from the same per-level cache for every bot of that level, so sorting it
+    // deterministically and keeping a small prefix gives same-level bots a
+    // shared set of destinations to converge on, without pinning every bot to
+    // one spot.
+    if (sPlayerbotAIConfig.teleportClusterChance &&
+        urand(0, 99) < sPlayerbotAIConfig.teleportClusterChance &&
+        tlocs.size() > sPlayerbotAIConfig.teleportClusterPoints)
+    {
+        std::sort(tlocs.begin(), tlocs.end(),
+                  [](WorldLocation const& a, WorldLocation const& b)
+                  {
+                      if (a.GetMapId() != b.GetMapId())
+                          return a.GetMapId() < b.GetMapId();
+                      if (a.GetPositionX() != b.GetPositionX())
+                          return a.GetPositionX() < b.GetPositionX();
+                      return a.GetPositionY() < b.GetPositionY();
+                  });
+        tlocs.resize(sPlayerbotAIConfig.teleportClusterPoints);
+    }
+
     std::shuffle(std::begin(tlocs), std::end(tlocs), RandomEngine::Instance());
     for (uint32 i = 0; i < tlocs.size(); i++)
     {

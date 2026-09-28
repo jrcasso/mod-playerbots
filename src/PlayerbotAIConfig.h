@@ -178,6 +178,10 @@ public:
     // Group invite level window. Flat +/-2 was the real cap on group size.
     uint32 groupInviteMinLevelDiff, groupInviteLevelDivisor;
 
+    // Teleport clustering (ITERATIONS row 110): bias destination choice toward a
+    // small shared subset so same-level bots land near each other.
+    uint32 teleportClusterChance, teleportClusterPoints;
+
     bool botAuctionsEnabled;
     uint32 botAuctionsMaxPerBot;
     float botAuctionsPriceMultiplier;

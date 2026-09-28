@@ -267,6 +267,14 @@ bool PlayerbotAIConfig::Initialize()
     randomBotTeleportDistance = sConfigMgr->GetOption<int32>("AiPlayerbot.RandomBotTeleportDistance", 100);
     randomBotsPerInterval = sConfigMgr->GetOption<int32>("AiPlayerbot.RandomBotsPerInterval", 60);
 
+    // Measured (row 109/110): 36% of open-world bots have nobody within 100yd,
+    // and 52% of those sit in zones already holding 6-20 others -- the teleport
+    // picks uniformly from the whole candidate list, so a zone's bots scatter.
+    // With this chance, draw from a small stable subset instead; same-level bots
+    // share the same source list, so they converge on the same points.
+    teleportClusterChance = sConfigMgr->GetOption<int32>("AiPlayerbot.TeleportClusterChance", 50);
+    teleportClusterPoints = std::max<uint32>(1, sConfigMgr->GetOption<int32>("AiPlayerbot.TeleportClusterPoints", 8));
+
     groupInviteMinLevelDiff = sConfigMgr->GetOption<int32>("AiPlayerbot.GroupInviteMinLevelDiff", 2);
     // Clamped to >=1: this is a divisor, and 0 would fault the world thread on
     // every invite check.
